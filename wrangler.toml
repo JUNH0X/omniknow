@@ -1,0 +1,12 @@
+name = "omniknow"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "omniknow-db"
+database_id = ""  # wrangler d1 create 후 여기에 ID 입력
+
+[assets]
+directory = "./public"
+binding = "ASSETS"

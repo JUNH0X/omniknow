@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PROJECT OMNIKNOW</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --card: #1a2332;
+      --border: #2d3a4f;
+      --text: #e6edf3;
+      --text-muted: #8b9bb4;
+      --accent: #58a6ff;
+      --danger: #f85149;
+      --success: #3fb950;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    header {
+      padding: 1.5rem 1rem;
+      border-bottom: 1px solid var(--border);
+      background: #161b22;
+    }
+    h1 { margin: 0; font-size: 1.5rem; }
+    .subtitle { color: var(--text-muted); font-size: 0.9rem; }
+    main { max-width: 900px; margin: 0 auto; padding: 1.5rem 1rem; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    h2 { margin-top: 0; font-size: 1.2rem; }
+    label { display: block; margin: 0.75rem 0 0.25rem; font-size: 0.9rem; color: var(--text-muted); }
+    input, select, textarea {
+      width: 100%;
+      padding: 0.6rem 0.75rem;
+      background: #0d1117;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 1rem;
+    }
+    textarea { min-height: 80px; resize: vertical; }
+    button {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 0.6rem 1.2rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+      margin-top: 0.75rem;
+    }
+    button.secondary { background: #30363d; }
+    button.danger { background: var(--danger); }
+    button:hover { opacity: 0.9; }
+    .topic-list { display: flex; flex-direction: column; gap: 0.75rem; }
+    .topic-item {
+      background: #0d1117;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      display: grid;
+      gap: 0.5rem;
+    }
+    .topic-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+    .badge {
+      font-size: 0.75rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      background: #30363d;
+    }
+    .badge.pending { color: #d29922; }
+    .badge.researching { color: var(--accent); }
+    .badge.completed { color: var(--success); }
+    .actions { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+    .actions button { margin: 0; padding: 0.35rem 0.7rem; font-size: 0.85rem; }
+    .empty { color: var(--text-muted); text-align: center; padding: 2rem; }
+    .error { color: var(--danger); font-size: 0.9rem; margin-top: 0.5rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>PROJECT OMNIKNOW</h1>
+    <div class="subtitle">자율형 인터넷 조사·지식 축적 AI 시스템 · MVP</div>
+  </header>
+
+  <main>
+    <div class="card">
+      <h2>새 주제 추가</h2>
+      <form id="topic-form">
+        <label>제목 *</label>
+        <input type="text" id="title" required placeholder="조사할 주제 제목" />
+        <label>분야</label>
+        <input type="text" id="category" value="general" />
+        <label>우선순위 (1~5)</label>
+        <select id="priority">
+          <option value="1">1 (낮음)</option>
+          <option value="2">2</option>
+          <option value="3" selected>3</option>
+          <option value="4">4</option>
+          <option value="5">5 (높음)</option>
+        </select>
+        <label>메모</label>
+        <textarea id="notes" placeholder="추가 설명 (선택)"></textarea>
+        <button type="submit">주제 추가</button>
+        <div id="form-error" class="error"></div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>주제 목록</h2>
+      <div id="topic-list" class="topic-list">
+        <div class="empty">로딩 중...</div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const API = '/api/topics';
+
+    async function loadTopics() {
+      const container = document.getElementById('topic-list');
+      try {
+        const res = await fetch(API);
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        if (!data.topics || data.topics.length === 0) {
+          container.innerHTML = '<div class="empty">등록된 주제가 없습니다.</div>';
+          return;
+        }
+        container.innerHTML = data.topics.map(t => `
+          <div class="topic-item" data-id="${t.id}">
+            <div class="topic-header">
+              <div>
+                <strong>${escapeHtml(t.title)}</strong>
+                <div style="font-size:0.85rem;color:var(--text-muted);margin-top:0.25rem;">
+                  ${escapeHtml(t.category || 'general')} · 우선순위 ${t.priority}
+                </div>
+              </div>
+              <span class="badge ${t.status}">${t.status}</span>
+            </div>
+            ${t.notes ? `<div style="font-size:0.9rem;color:var(--text-muted);">${escapeHtml(t.notes)}</div>` : ''}
+            <div style="font-size:0.8rem;color:var(--text-muted);">
+              생성: ${t.created_at?.slice(0,16).replace('T',' ')} · 수정: ${t.updated_at?.slice(0,16).replace('T',' ')}
+            </div>
+            <div class="actions">
+              <button class="secondary" onclick="changeStatus(${t.id}, 'pending')">대기</button>
+              <button class="secondary" onclick="changeStatus(${t.id}, 'researching')">조사중</button>
+              <button class="secondary" onclick="changeStatus(${t.id}, 'completed')">완료</button>
+              <button class="danger" onclick="deleteTopic(${t.id})">삭제</button>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        container.innerHTML = `<div class="error">목록을 불러오지 못했습니다: ${err.message}</div>`;
+      }
+    }
+
+    async function createTopic(e) {
+      e.preventDefault();
+      const errEl = document.getElementById('form-error');
+      errEl.textContent = '';
+      const payload = {
+        title: document.getElementById('title').value.trim(),
+        category: document.getElementById('category').value.trim() || 'general',
+        priority: Number(document.getElementById('priority').value),
+        notes: document.getElementById('notes').value.trim()
+      };
+      if (!payload.title) {
+        errEl.textContent = '제목을 입력해주세요.';
+        return;
+      }
+      try {
+        const res = await fetch(API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || '생성 실패');
+        }
+        document.getElementById('topic-form').reset();
+        document.getElementById('priority').value = '3';
+        await loadTopics();
+      } catch (err) {
+        errEl.textContent = err.message;
+      }
+    }
+
+    async function changeStatus(id, status) {
+      try {
+        const res = await fetch(`${API}/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status })
+        });
+        if (!res.ok) throw new Error('상태 변경 실패');
+        await loadTopics();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    async function deleteTopic(id) {
+      if (!confirm('정말 삭제하시겠습니까?')) return;
+      try {
+        const res = await fetch(`${API}/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('삭제 실패');
+        await loadTopics();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&')
+        .replace(/</g, '<')
+        .replace(/>/g, '>')
+        .replace(/"/g, '"');
+    }
+
+    document.getElementById('topic-form').addEventListener('submit', createTopic);
+    loadTopics();
+  </script>
+</body>
+</html>
